@@ -8,7 +8,6 @@ import prisma from "@/utils/db";
 import { nanoid } from "nanoid";
 
 export const authOptions: any = {
-  // Настройка одного или нескольких провайдеров аутентификации
   providers: [
     CredentialsProvider({
       id: "credentials",
@@ -18,83 +17,64 @@ export const authOptions: any = {
         password: { label: "Пароль", type: "password" },
       },
       async authorize(credentials: any) {
+        if (!credentials?.email || !credentials?.password) return null;
 
         try {
           const user = await prisma.user.findFirst({
-            where: {
-              email: credentials.email,
-            },
+            where: { email: credentials.email },
           });
-          if (user) {
-            const isPasswordCorrect = await bcrypt.compare(
-              credentials.password,
-              user.password!
-            );
-            if (isPasswordCorrect) {
-              return user;
-            }
-          }
-        } catch (err: any) {
-          throw new Error(err);
+
+          if (!user || !user.password) return null;
+
+          const isPasswordCorrect = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordCorrect) return null;
+
+          // Удалим пароль перед возвратом
+          const { password, ...userWithoutPassword } = user;
+          return userWithoutPassword;
+        } catch (err) {
+          console.error("Ошибка авторизации:", err);
+          return null;
         }
       },
-    })
-    // GithubProvider({
-    //   clientId: process.env.GITHUB_ID ?? "",
-    //   clientSecret: process.env.GITHUB_SECRET ?? "",
-    // }),
-    // GoogleProvider({
-    //   clientId: process.env.GOOGLE_ID ?? "",
-    //   clientSecret: process.env.GOOGLE_SECRET ?? "",
-    // }),
-    // ...добавьте больше провайдеров здесь, если хотите. Вы можете найти их на сайте nextauth.
+    }),
   ],
   callbacks: {
-    async signIn({ user, account }: { user: AuthUser; account: Account }) {
-      if (account?.provider == "credentials") {
+    async signIn({ user, account }: { user: any; account: any }) {
+      if (account?.provider === "credentials") {
         return true;
       }
-      // if (account?.provider == "github") {
 
-      //   try {
-      //     const existingUser = await prisma.user.findFirst({ where: {email: user.email!} });
-      //     if (!existingUser) {
+      // Раскомментируй ниже, если используешь GitHub или Google
+      /*
+      if (account?.provider === "github" || account?.provider === "google") {
+        try {
+          const existingUser = await prisma.user.findFirst({
+            where: { email: user.email! },
+          });
 
-      //       await prisma.user.create({
-      //           data: {
-      //             id: nanoid() + "",
-      //             email: user.email!
-      //           },
-      //         });
-      //       return true;
-      //     }
-      //     return true;
-      //   } catch (err) {
-      //     console.log("Ошибка при сохранении пользователя", err);
-      //     return false;
-      //   }
-      // }
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                id: nanoid(),
+                email: user.email!,
+              },
+            });
+          }
 
-      // if (account?.provider == "google") {
+          return true;
+        } catch (err) {
+          console.log("Ошибка при сохранении пользователя", err);
+          return false;
+        }
+      }
+      */
 
-      //   try {
-      //     const existingUser = await prisma.user.findFirst({where: { email: user.email! }});
-      //     if (!existingUser) {
-      //       await prisma.user.create({
-      //           data: {
-      //             id: nanoid() + "",
-      //             email: user.email!
-      //           },
-      //         });
-
-      //       return true;
-      //     }
-      //     return true;
-      //   } catch (err) {
-      //     console.log("Ошибка при сохранении пользователя", err);
-      //     return false;
-      //   }
-      // }
+      return false; // защита от других провайдеров
     },
   },
 };
