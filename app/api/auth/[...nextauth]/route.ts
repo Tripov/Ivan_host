@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/utils/db";
 import { nanoid } from "nanoid";
 
-export const authOptions: any = {
+const handler = NextAuth({
   providers: [
     CredentialsProvider({
       id: "credentials",
@@ -33,8 +33,8 @@ export const authOptions: any = {
 
           if (!isPasswordCorrect) return null;
 
-          // Удалим пароль перед возвратом
           const { password, ...userWithoutPassword } = user;
+
           return userWithoutPassword;
         } catch (err) {
           console.error("Ошибка авторизации:", err);
@@ -43,41 +43,13 @@ export const authOptions: any = {
       },
     }),
   ],
-  callbacks: {
-    async signIn({ user, account }: { user: any; account: any }) {
-      if (account?.provider === "credentials") {
-        return true;
-      }
-
-      // Раскомментируй ниже, если используешь GitHub или Google
-      /*
-      if (account?.provider === "github" || account?.provider === "google") {
-        try {
-          const existingUser = await prisma.user.findFirst({
-            where: { email: user.email! },
-          });
-
-          if (!existingUser) {
-            await prisma.user.create({
-              data: {
-                id: nanoid(),
-                email: user.email!,
-              },
-            });
-          }
-
-          return true;
-        } catch (err) {
-          console.log("Ошибка при сохранении пользователя", err);
-          return false;
-        }
-      }
-      */
-
-      return false; // защита от других провайдеров
-    },
+  pages: {
+    signIn: "/login", // если хочешь настроить кастомную страницу входа
   },
-};
+  session: {
+    strategy: "jwt",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+});
 
-export const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
